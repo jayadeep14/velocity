@@ -14,13 +14,14 @@
 - Member 2: Malavika Rajeevan - SOE CUSAT
 
 ### Project Description
-[2-3 lines about what your project does]
+Roselle is an AI ghost you can actually talk to. 👻
+Create your own spooky companion, chat with her, and watch her react with different personalities, expressions, animations, and a ghostly attitude.
 
 ### The Problem (that doesn't exist)
-[What ridiculous problem are you solving?]
+People have too many friends and not enough ghosts.
 
 ### The Solution (that nobody asked for)
-[How are you solving it? Keep it fun!]
+Meet Roselle — your completely unnecessary AI ghost. 👻
 
 ## Technical Details
 ### Technologies/Components Used
