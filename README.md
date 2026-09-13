@@ -42,6 +42,26 @@ Visual Studio Code — development
 
 ### Implementation
 For Software:
+  Frontend
+  index.html contains:
+  Roselle's 3D environment
+  VRM avatar
+  Emotion controller
+  Animation controller
+  Voice interaction
+  Chat interface
+  Lip-sync and visual effects
+
+  Backend
+  server.py provides:
+  FastAPI web server
+  Gemini API communication
+  ElevenLabs API communication
+  Conversation sessions
+  Text-to-speech generation
+  Static asset serving
+
+API keys are stored securely as environment variables and are not included in the source code.
 # Installation
 chmod +x MyApp-x86_64.AppImage
 ./MyApp-x86_64.AppImage
@@ -49,8 +69,12 @@ chmod +x MyApp-x86_64.AppImage
 # Run
 pip install -r requirements.txt
 python3 bridge.py
+Live Demo
 
-https://roselle-ai.onrender.com/
+👻 Talk to Roselle:
+https://roselle-ai.onrender.com
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/bb440abd-586a-4271-a4b1-a86424ccdbeb" />
+
 
 ### Project Documentation
 For Software:
@@ -66,8 +90,38 @@ For Software:
 
 
 # Diagrams
-![Workflow](Add your workflow/architecture diagram here)
-*Add caption explaining your workflow*
+
+                    ┌─────────────────┐
+                    │      User       │
+                    │  Text / Voice   │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │   index.html    │
+                    │  3D Web Client  │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │    server.py    │
+                    │     FastAPI     │
+                    └───────┬─┬───────┘
+                            │ │
+                ┌───────────┘ └───────────┐
+                ▼                         ▼
+        ┌───────────────┐         ┌───────────────┐
+        │ Google Gemini │         │   ElevenLabs  │
+        │  AI / Brain   │         │ Voice / TTS   │
+        └───────┬───────┘         └───────┬───────┘
+                │                         │
+                └──────────┬──────────────┘
+                           ▼
+                  ┌─────────────────┐
+                  │  Roselle Avatar │
+                  │ Emotion + Voice │
+                  │   + Animation   │
+                  └─────────────────┘
 
 For Hardware:
 
@@ -100,12 +154,22 @@ https://github.com/user-attachments/assets/145b3313-7f9f-4726-9229-81fa1f114cfb
 [Add any extra demo materials/links]
 
 ## Team Contributions
-- [Name 1]: [Specific contributions]
-- [Name 2]: [Specific contributions]
-- [Name 3]: [Specific contributions]
+- Jayadeep T P
+          Project architecture
+          Frontend development
+          AI integration
+          Backend integration
+          Audio integration
+          Testing
 
----
-Made with ❤️ at TinkerHub Useless Projects 
+-Malavika Rajeevan
+  Roselle character design
+  VRoid Studio avatar creation
+  Blender asset creation
+  Visual design
+  Deployment
+
+  Made with ❤️ at TinkerHub Useless Projects 
 
 ![Static Badge](https://img.shields.io/badge/TinkerHub-24?color=%23000000&link=https%3A%2F%2Fwww.tinkerhub.org%2F)
 ![Static Badge](https://img.shields.io/badge/UselessProjects--26-26?link=https%3A%2F%2Ftinkerhub.org%2Fevents%2F1M8ORET9A1%2Fuseless-projects-3.0)
