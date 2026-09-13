@@ -23,18 +23,22 @@ People have too many friends and not enough ghosts.
 ### The Solution (that nobody asked for)
 Meet Roselle — your completely unnecessary AI ghost. 👻
 
-## Technical Details
-### Technologies/Components Used
-For Software:
-- [Languages used]
-- [Frameworks used]
-- [Libraries used]
-- [Tools used]
-
-For Hardware:
-- [List main components]
-- [List specifications]
-- [List tools required]
+Languages used: HTML, CSS, JavaScript, Python
+Frameworks used: PyQt5
+Libraries used:
+Three.js — 3D rendering
+Three-VRM — loading and controlling the VRM ghost avatar
+GLTFLoader — loading .vrm/GLTF-based 3D assets
+OrbitControls — rotation, zoom, and interaction
+ElevenLabs — AI voice generation / text-to-speech
+AI:
+Google Gemini API — conversational AI and Roselle's personality
+Tools used:
+VRoid Studio — creating the Roselle avatar
+Blender — creating/editing the rose accessory
+Git & GitHub — version control and project hosting
+Python socketserver — local server / communication layer
+Visual Studio Code — development
 
 ### Implementation
 For Software:
