@@ -6,13 +6,12 @@
 
 
 ## Basic Details
-### Team Name: [Name]
+### Team Name: Velocity
 
 
 ### Team Members
-- Team Lead: [Name] - [College]
-- Member 2: [Name] - [College]
-- Member 3: [Name] - [College]
+- Team Lead: Jayadeep T P - SOE CUSAT
+- Member 2: Malavika Rajeevan - SOE CUSAT
 
 ### Project Description
 [2-3 lines about what your project does]
