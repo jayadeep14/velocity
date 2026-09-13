@@ -2,7 +2,7 @@
 
 
 
-# [Project Name] 🎯
+# Talk to Roselle 👻
 
 
 ## Basic Details
@@ -43,23 +43,27 @@ Visual Studio Code — development
 ### Implementation
 For Software:
 # Installation
-[commands]
+chmod +x MyApp-x86_64.AppImage
+./MyApp-x86_64.AppImage
 
 # Run
-[commands]
+pip install -r requirements.txt
+python3 bridge.py
+
+https://roselle-ai.onrender.com/
 
 ### Project Documentation
 For Software:
 
 # Screenshots (Add at least 3)
-![Screenshot1](Add screenshot 1 here with proper name)
-*Add caption explaining what this shows*
+<img width="1920" height="1080" alt="Screenshot (1636)" src="https://github.com/user-attachments/assets/98cbd555-7772-4ffb-9911-1390f8130260" />
 
-![Screenshot2](Add screenshot 2 here with proper name)
-*Add caption explaining what this shows*
+<img width="660" height="922" alt="Screenshot from 2026-09-13 17-15-51" src="https://github.com/user-attachments/assets/b68206d2-fdd4-4a80-aa2c-92b12937a163" />
 
-![Screenshot3](Add screenshot 3 here with proper name)
-*Add caption explaining what this shows*
+*<img width="1920" height="1080" alt="Screenshot (1637)" src="https://github.com/user-attachments/assets/79b45c38-59a1-4a37-aff4-4c7e24eabaaf" />
+
+
+
 
 # Diagrams
 ![Workflow](Add your workflow/architecture diagram here)
@@ -86,8 +90,11 @@ For Hardware:
 
 ### Project Demo
 # Video
-[Add your demo video link here]
-*Explain what the video demonstrates*
+
+
+https://github.com/user-attachments/assets/145b3313-7f9f-4726-9229-81fa1f114cfb
+
+
 
 # Additional Demos
 [Add any extra demo materials/links]
