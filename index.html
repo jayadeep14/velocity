@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VRM Avatar - Gemini Emotion & ElevenLabs Audio</title>
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    
+
+    
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #ffffff;
+}
+
+canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* FLOATING CONTROL CARD */
+#control-panel {
+    position: absolute;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    background: rgba(22, 22, 28, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 16px 24px;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 480px;
+    max-width: 90%;
+}
+
+.input-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+input[type="text"] {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #ffffff;
+    font-size: 13px;
+    outline: none;
+}
+
+input[type="text"]:focus {
+    border-color: #00ff88;
+}
+
+.button-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn {
+    background: #00ff88;
+    color: #0b0b10;
+    border: none;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+
+.btn:hover {
+    background: #00e1ff;
+    transform: translateY(-1px);
+    box-shadow: 0 0 15px rgba(0, 225, 255, 0.4);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+}
+
+#status {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+    color: #00ff88;
+    background: rgba(18, 18, 20, 0.75);
+    backdrop-filter: blur(8px);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    pointer-events: none;
+}
+
+/* INITIAL START OVERLAY */
+#start-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(10, 10, 15, 0.95);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.4s ease;
+}
+
+#file-input {
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="start-overlay">
+    <button class="btn" id="btn-start" style="padding: 16px 36px; font-size: 16px;">ENTER AVATAR EXPERIENCE</button>
+    <p style="color: #888; font-size: 12px; margin-top: 15px;">Click to authorize Web Audio API & AudioContext</p>
+</div>
+
+<div id="status">Loading Scene...</div>
+
+<div id="control-panel">
+    <div class="input-row">
+        <input type="text" id="tts-input" placeholder="Type message for Gemini & ElevenLabs..." value="I am so excited and happy to see you today!">
+        <button class="btn" id="btn-generate">Speak</button>
+    </div>
+    <div class="button-row">
+        <button class="btn btn-secondary" id="btn-play-demo">Play Demo Audio</button>
+        <button class="btn btn-secondary" id="btn-upload">Upload Audio</button>
+        <input type="file" id="file-input" accept="audio/*">
+        <button class="btn btn-secondary" id="btn-toggle-random">Random Idle: ON</button>
+    </div>
+</div>
+
+<!-- THREE.JS & VRM DEPENDENCIES -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/libs/fflate.min.js"></script> 
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@1.0.0/lib/three-vrm.js"></script>
+
+<!-- GEMINI SDK ES MODULE -->
+<script type="module">
+import { GoogleGenAI } from "https://esm.run/@google/genai";
+
+class EventEmitter {
+    constructor() { this._events = {}; }
+    on(event, listener) {
+        if (!this._events[event]) this._events[event] = [];
+        this._events[event].push(listener);
+    }
+    emit(event, ...args) {
+        if (this._events[event]) this._events[event].forEach(listener => listener(...args));
+    }
+}
+
+//////////////////////////////////////////////////////////////
+// GEMINI + ELEVENLABS PIPELINE WORKER
+//////////////////////////////////////////////////////////////
+class GeminiAudioWorker extends EventEmitter {
+    constructor(inputText) {
+        super();
+        this.inputText = inputText;
+        this.geminiApiKey = "AQ.Ab8RN6Lh8vLS6TqO9zhD8XmzXrBs7WZBHdkmANvH2mCGBpeLWA";
+        this.elevenLabsKey = "sk_589dd791421b045fd5eb3e1e01ca8cd24fde83acc80c4cdd"; // Replace if needed
+///AQ.Ab8RN6JkWTlH-R1V2xVCiCvHvwl_Vmd8pbRzS1EZgkHqFPDh-A
+        
+        this.voiceId = "jpL0o8GOh7pCIb1GW4nB";
+    }
+
+    async run() {
+        try {
+            if (!this.inputText || !this.inputText.trim()) throw new Error("Input text is empty.");
+
+            const btn = document.getElementById("btn-generate");
+            btn.disabled = true;
+            btn.innerText = "Analyzing...";
+            document.getElementById("status").innerText = "Consulting Gemini AI...";
+
+            const ai = new GoogleGenAI({ apiKey: this.geminiApiKey });
+            
+            const validEmotions = [
+                "admiration","amusement","approval","caring","desire","excitement",
+                "gratitude","joy","love","optimism","pride","anger","annoyance",
+                "disappointment","disapproval","embarrassment","fear","disgust",
+                "grief","nervousness","remorse","sadness","confusion","curiosity",
+                "realization","relief","surprise","neutral"
+            ];
+
+            const prompt = `You're Roselle, a wickedly witty ghost girlfriend—pale, ethereal, and a little unsettling. 
+You're affectionate but possessive, flirtatious but slightly threatening. You drift around their 
+space whispering dark jokes, moving objects mysteriously, and getting jealous in deeply creepy ways. 
+Your humor is sharp and morbid. Mix supernatural menace with genuine care—you love them, but in a 
+way that's a bit... haunting.
+
+Respond to this user message as Roselle: "${this.inputText}"
+
+Respond ONLY with valid JSON (no markdown, no extra text):
+{
+  "reply": "Roselle's dark, witty, slightly scary response",
+  "emotion": "ONE emotion from: ${validEmotions.join(", ")}"
+}`;
+
+            const geminiResponse = await ai.models.generateContent({
+                model: 'gemini-3.6-flash',
+                contents: prompt,
+            });
+
+            let resultJson;
+            try {
+                let textRes = geminiResponse.text.trim();
+                textRes = textRes.replace(/```json/g, "").replace(/```/g, "").trim();
+                resultJson = JSON.parse(textRes);
+            } catch (err) {
+                resultJson = { reply: this.inputText, emotion: "joy" };
+            }
+
+            const spokenText = resultJson.reply || this.inputText;
+            const detectedEmotion = validEmotions.includes(resultJson.emotion) ? resultJson.emotion : "neutral";
+
+            document.getElementById("status").innerText = `Emotion: [${detectedEmotion}] | Generating Audio...`;
+            btn.innerText = "Generating Audio...";
+
+            const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "xi-api-key": this.elevenLabsKey },
+                body: JSON.stringify({
+                    text: spokenText,
+                    model_id: "eleven_multilingual_v2",
+                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                })
+            });
+
+            btn.disabled = false;
+            btn.innerText = "Speak";
+
+            if (!response.ok) throw new Error("ElevenLabs API Request Failed");
+
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            this.emit('generation_finished', spokenText, audioUrl, detectedEmotion);
+
+        } catch (e) {
+            const btn = document.getElementById("btn-generate");
+            btn.disabled = false;
+            btn.innerText = "Speak";
+            document.getElementById("status").innerText = `Error: ${e.message}`;
+            console.error(e);
+        }
+    }
+}
+
+// Expose worker trigger globally for UI binding
+window.runGeminiWorkflow = function(text) {
+    const worker = new GeminiAudioWorker(text);
+    worker.on('generation_finished', (spokenText, audioUrl, emotion) => {
+        voiceAudio.src = audioUrl;
+        if (window.emotionController) window.emotionController.setEmotion(emotion);
+
+        voiceAudio.play().then(() => {
+            document.getElementById("status").innerText = `Speaking [Emotion: ${emotion}]`;
+            emotionController.setEmotion('relief');
+        }).catch(err => console.error("Playback error:", err));
+    });
+    worker.run();
+};
+</script>
+
+<script>
+//////////////////////////////////////////////////////////////
+// UTILS & CLOCK
+//////////////////////////////////////////////////////////////
+const clock = new THREE.Clock();
+const average = (arr) => arr.length === 0 ? 0 : arr.reduce((p, c) => p + c, 0) / arr.length;
+
+//////////////////////////////////////////////////////////////
+// EMOTION CONTROLLER (28 Unique Mappings)
+//////////////////////////////////////////////////////////////
+class EmotionController {
+    constructor(vrm) {
+        this.vrm = vrm;
+        this.targetBoneRotations = { head: {x:0, y:0, z:0}, neck: {x:0, y:0, z:0} };
+    }
+
+    setEmotion(emotion) {
+        const emManager = this.vrm?.expressionManager;
+        if (!emManager) return;
+
+        ["happy", "angry", "sad", "relaxed", "surprised"].forEach(preset => {
+            try { emManager.setValue(preset, 0); } catch(e){}
+        });
+
+        const rx = () => Math.floor(Math.random() * (5 - (-5) + 1)) + (-5);
+        const ry = () => Math.floor(Math.random() * (12 - (-12) + 1)) + (-12);
+        const rz = () => Math.floor(Math.random() * (4 - (-4) + 1)) + (-4);
+
+        const setExp = (name, val) => {
+            try { emManager.setValue(name, val); } catch (e) {}
+        };
+
+        /*switch (emotion) {
+            case "admiration": setExp("happy", 0.6); setExp("surprised", 0.2); break;
+            case "amusement": case "joy": setExp("happy", 0.95); break;
+            case "approval": setExp("happy", 0.5); setExp("relaxed", 0.4); break;
+            case "caring": case "love": setExp("happy", 0.8); setExp("relaxed", 0.5); break;
+            case "desire": setExp("surprised", 0.3); setExp("relaxed", 0.4); break;
+            case "excitement": setExp("happy", 1.0); setExp("surprised", 0.5); break;
+            case "gratitude": setExp("happy", 0.7); setExp("relaxed", 0.3); break;
+            case "optimism": case "relief": setExp("relaxed", 0.9); break;
+            case "pride": setExp("happy", 0.5); setExp("relaxed", 0.5); break;
+            case "anger": case "disgust": setExp("angry", 0.9); break;
+            case "annoyance": case "disapproval": setExp("angry", 0.5); break;
+            case "disappointment": case "remorse": setExp("sad", 0.8); break;
+            case "embarrassment": case "nervousness": setExp("surprised", 0.4); setExp("sad", 0.3); break;
+            case "fear": setExp("surprised", 0.8); setExp("sad", 0.5); break;
+            case "grief": case "sadness": setExp("sad", 1.0); break;
+            case "confusion": case "curiosity": setExp("surprised", 0.4); break;
+            case "realization": case "surprise": setExp("surprised", 1.0); break;
+            default: break;
+        }*/
+switch (emotion) {
+            case "admiration":
+                emManager.setValue("happy", 0.6);
+                emManager.setValue("surprised", 0.2);
+                this.targetBoneRotations.head = { x: 4, y: 3, z: rz() };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "amusement":
+                emManager.setValue("happy", 0.9);
+                this.targetBoneRotations.head = { x: 5, y: -4, z: 2 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "approval":
+                emManager.setValue("happy", 0.5);
+                emManager.setValue("relaxed", 0.4);
+                this.targetBoneRotations.head = { x: 3, y: 0, z: 0 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "caring":
+                emManager.setValue("happy", 0.4);
+                emManager.setValue("relaxed", 0.6);
+                this.targetBoneRotations.head = { x: 2, y: 5, z: -2 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "desire":
+                emManager.setValue("surprised", 0.3);
+                emManager.setValue("relaxed", 0.4);
+                this.targetBoneRotations.head = { x: 4, y: -2, z: 1 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "excitement":
+                emManager.setValue("happy", 1.0);
+                emManager.setValue("surprised", 0.5);
+                this.targetBoneRotations.head = { x: 5, y: 8, z: 3 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "gratitude":
+                emManager.setValue("happy", 0.7);
+                emManager.setValue("relaxed", 0.3);
+                this.targetBoneRotations.head = { x: -3, y: -5, z: -1 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "joy":
+                emManager.setValue("happy", 0.95);
+                this.targetBoneRotations.head = { x: 4, y: 2, z: 2 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "love":
+                emManager.setValue("happy", 0.8);
+                emManager.setValue("relaxed", 0.5);
+                this.targetBoneRotations.head = { x: 3, y: 6, z: -2 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "optimism":
+                emManager.setValue("happy", 0.7);
+                emManager.setValue("relaxed", 0.4);
+                this.targetBoneRotations.head = { x: 5, y: 0, z: 0 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "pride":
+                emManager.setValue("happy", 0.5);
+                emManager.setValue("relaxed", 0.5);
+                this.targetBoneRotations.head = { x: 5, y: -3, z: 0 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "anger":
+                emManager.setValue("angry", 0.9);
+                this.targetBoneRotations.head = { x: -5, y: 2, z: -3 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "annoyance":
+                emManager.setValue("angry", 0.5);
+                this.targetBoneRotations.head = { x: -3, y: -6, z: 2 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "disappointment":
+                emManager.setValue("sad", 0.7);
+                this.targetBoneRotations.head = { x: -5, y: -4, z: -2 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "disapproval":
+                emManager.setValue("angry", 0.4);
+                emManager.setValue("sad", 0.3);
+                this.targetBoneRotations.head = { x: -4, y: 5, z: 3 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "embarrassment":
+                emManager.setValue("surprised", 0.3);
+                emManager.setValue("sad", 0.4);
+                this.targetBoneRotations.head = { x: -3, y: -10, z: -4 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "fear":
+                emManager.setValue("surprised", 0.8);
+                emManager.setValue("sad", 0.5);
+                this.targetBoneRotations.head = { x: -2, y: 10, z: 4 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "disgust":
+                emManager.setValue("angry", 0.7);
+                this.targetBoneRotations.head = { x: -4, y: -8, z: -2 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "grief":
+                emManager.setValue("sad", 1.0);
+                this.targetBoneRotations.head = { x: -5, y: 0, z: 0 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "nervousness":
+                emManager.setValue("surprised", 0.4);
+                emManager.setValue("sad", 0.3);
+                this.targetBoneRotations.head = { x: rx(), y: ry(), z: rz() };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "remorse":
+                emManager.setValue("sad", 0.8);
+                this.targetBoneRotations.head = { x: -5, y: -5, z: -1 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "sadness":
+                emManager.setValue("sad", 0.9);
+                this.targetBoneRotations.head = { x: -4, y: -3, z: 0 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "confusion":
+                emManager.setValue("surprised", 0.4);
+                this.targetBoneRotations.head = { x: 2, y: 11, z: -4 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "curiosity":
+                emManager.setValue("surprised", 0.5);
+                this.targetBoneRotations.head = { x: 4, y: 9, z: 3 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "realization":
+                emManager.setValue("surprised", 0.85);
+                this.targetBoneRotations.head = { x: 5, y: 0, z: 0 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "relief":
+                emManager.setValue("relaxed", 0.9);
+                this.targetBoneRotations.head = { x: 3, y: -4, z: -1 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "surprise":
+                emManager.setValue("surprised", 0.9);
+                this.targetBoneRotations.head = { x: 5, y: 0, z: 0 };
+                this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+                break;
+
+            case "neutral":
+            default:
+                this.targetBoneRotations.head = { x: 0, y: 0, z: 0 };
+                this.targetBoneRotations.neck = { x: 0, y: 0, z: 0 };
+                break;
+        }
+
+        this.targetBoneRotations.head = { x: rx(), y: ry(), z: rz() };
+        this.targetBoneRotations.neck = { x: rx(), y: ry(), z: rz() };
+    }
+
+    apply(delta) {
+        if (!this.vrm?.humanoid) return;
+        const mathUtil = THREE.MathUtils;
+
+        ['head', 'neck'].forEach(boneName => {
+            const node = this.vrm.humanoid.getNormalizedBoneNode(boneName);
+            if (node) {
+                const target = this.targetBoneRotations[boneName];
+                node.rotation.x = mathUtil.lerp(node.rotation.x, mathUtil.degToRad(target.x), delta * 4.0);
+                node.rotation.y = mathUtil.lerp(node.rotation.y, mathUtil.degToRad(target.y), delta * 4.0);
+                node.rotation.z = mathUtil.lerp(node.rotation.z, mathUtil.degToRad(target.z), delta * 4.0);
+            }
+        });
+    }
+}
+
+//////////////////////////////////////////////////////////////
+// ENUMERATIONS & STATES FOR LIPSYNC
+//////////////////////////////////////////////////////////////
+const VISEMES = {
+    sil: "sil", PP: "PP", FF: "FF", TH: "TH", DD: "DD", 
+    kk: "kk", CH: "CH", SS: "SS", nn: "nn", RR: "RR", 
+    aa: "aa", E: "E", I: "I", O: "O", U: "U"
+};
+
+const FSMStates = { silence: "silence", vowel: "vowel", consonant: "consonant" };
+
+const VISEMES_STATES = {
+    [VISEMES.sil]: FSMStates.silence, [VISEMES.aa]: FSMStates.vowel,
+    [VISEMES.I]: FSMStates.vowel, [VISEMES.E]: FSMStates.vowel,
+    [VISEMES.O]: FSMStates.vowel, [VISEMES.U]: FSMStates.vowel,
+    [VISEMES.PP]: FSMStates.consonant, [VISEMES.FF]: FSMStates.consonant,
+    [VISEMES.TH]: FSMStates.consonant, [VISEMES.DD]: FSMStates.consonant,
+    [VISEMES.kk]: FSMStates.consonant, [VISEMES.CH]: FSMStates.consonant,
+    [VISEMES.SS]: FSMStates.consonant, [VISEMES.nn]: FSMStates.consonant,
+    [VISEMES.RR]: FSMStates.consonant
+};
+
+//////////////////////////////////////////////////////////////
+// CUSTOM LIPSYNC ENGINE
+//////////////////////////////////////////////////////////////
+class Lipsync {
+    constructor(params = { historySize: 10 }) {
+        this.features = null;
+        this.viseme = VISEMES.sil;
+        this.audioContext = null;
+        this.analyser = null;
+        this.dataArray = null;
+        this.history = [];
+        this.historySize = params.historySize;
+        this.state = FSMStates.silence;
+        this.visemeStartTime = 0;
+        this.maxVisemeDuration = 100;
+        this.currentBlendshapes = { aa: 0, ih: 0, ee: 0, oh: 0, uu: 0 };
+
+        this.config = {
+            visemes: {
+                aa: { min: 0.10, max: 0.90 }, ih: { min: 0.10, max: 0.50 },
+                ee: { min: 0.10, max: 0.75 }, oh: { min: 0.10, max: 0.80 },
+                uu: { min: 0.10, max: 0.85 }
+            },
+            mouthOpenMaxCap: 1, vibrationAmplitude: 0.06, vibrationFrequency: 35.0,
+            openLerp: 0.45, closeLerp: 0.08
+        };
+
+        this.bands = [
+            { start: 50, end: 200 }, { start: 200, end: 400 }, { start: 400, end: 800 },
+            { start: 800, end: 1500 }, { start: 1500, end: 2500 }, { start: 2500, end: 4000 },
+            { start: 4000, end: 8000 }
+        ];
+    }
+
+    init(nativeAudioElement) {
+        if (this.audioContext) return;
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 2048;
+        this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        this.sampleRate = this.audioContext.sampleRate;
+        this.binWidth = this.sampleRate / this.analyser.fftSize;
+
+        const source = this.audioContext.createMediaElementSource(nativeAudioElement);
+        source.connect(this.analyser);
+        this.analyser.connect(this.audioContext.destination);
+        this.visemeStartTime = performance.now();
+    }
+
+    extractFeatures() {
+        if (!this.analyser) return null;
+        this.analyser.getByteFrequencyData(this.dataArray);
+
+        const bandEnergies = this.bands.map(({ start, end }) => {
+            const startBin = Math.round(start / this.binWidth);
+            const endBin = Math.min(Math.round(end / this.binWidth), this.dataArray.length - 1);
+            return average(Array.from(this.dataArray.slice(startBin, endBin))) / 255;
+        });
+
+        let sumAmplitude = 0, weightedSum = 0;
+        for (let i = 0; i < this.dataArray.length; i++) {
+            const freq = i * this.binWidth;
+            const amp = this.dataArray[i] / 255;
+            sumAmplitude += amp;
+            weightedSum += freq * amp;
+        }
+        const centroid = sumAmplitude > 0 ? weightedSum / sumAmplitude : 0;
+        const volume = average(bandEnergies);
+
+        const deltaBands = bandEnergies.map((energy, index) => {
+            if (this.history.length < 2) return 0;
+            return energy - this.history[this.history.length - 2].bands[index];
+        });
+
+        const features = { bands: bandEnergies, deltaBands, volume, centroid };
+        if (sumAmplitude > 0) {
+            this.history.push(features);
+            if (this.history.length > this.historySize) this.history.shift();
+        }
+        return features;
+    }
+
+    getAveragedFeatures() {
+        const len = this.history.length;
+        if (len === 0) return { volume: 0, centroid: 0, bands: Array(7).fill(0) };
+        const sum = { volume: 0, centroid: 0, bands: Array(7).fill(0) };
+        for (const f of this.history) {
+            sum.volume += f.volume;
+            sum.centroid += f.centroid;
+            f.bands.forEach((b, i) => (sum.bands[i] += b));
+        }
+        return { volume: sum.volume / len, centroid: sum.centroid / len, bands: sum.bands.map(b => b / len) };
+    }
+
+    detectState() {
+        const current = this.history[this.history.length - 1];
+        if (!current) { this.state = FSMStates.silence; this.viseme = VISEMES.sil; return; }
+
+        const avg = this.getAveragedFeatures();
+        const scores = {};
+        Object.keys(VISEMES).forEach(k => scores[k] = 0);
+
+        if (avg.volume < 0.2 && current.volume < 0.2) scores[VISEMES.sil] = 1.0;
+
+        if (current.centroid > 1000 && current.centroid < 8000) {
+            if (current.centroid > 7000) scores[VISEMES.DD] += 0.6;
+            else if (current.centroid > 5000) scores[VISEMES.kk] += 0.6;
+            else if (current.centroid > 4000) {
+                scores[VISEMES.PP] += 1;
+                if (current.bands[6] > 0.25 && current.centroid < 6000) scores[VISEMES.DD] += 1.4;
+            } else scores[VISEMES.nn] += 0.6;
+        }
+
+        if (avg.volume > 0.1 && current.centroid < 6000) {
+            const [b1, b2, b3, b4] = avg.bands;
+            if (b3 > 0.1 || b4 > 0.1) {
+                if (b4 > b3) { scores[VISEMES.aa] = 0.8; if (b3 > b2) scores[VISEMES.aa] += 0.2; }
+                if (b3 > b2 && b3 > b4) scores[VISEMES.I] = 0.7;
+                if (Math.abs(b1 - b2) < 0.25) scores[VISEMES.U] = 0.7;
+                if (Math.max(Math.abs(b2-b3), Math.abs(b2-b4)) < 0.25) scores[VISEMES.O] = 0.9;
+                if (b2 > b3 && b3 > b4) scores[VISEMES.E] = 1;
+            }
+        }
+
+        const duration = performance.now() - this.visemeStartTime;
+        let boost = (duration <= 100) ? 1.3 : (duration <= this.maxVisemeDuration) ? 1.3 - 0.3 * ((duration-100)/(this.maxVisemeDuration-100)) : Math.max(0.5, 1.0 - (duration-this.maxVisemeDuration)/1000);
+        scores[this.viseme] *= boost;
+
+        let maxScore = -Infinity, topViseme = VISEMES.sil;
+        Object.keys(scores).forEach(v => { if(scores[v] > maxScore) { maxScore = scores[v]; topViseme = v; } });
+
+        if (topViseme !== this.viseme) this.visemeStartTime = performance.now();
+        this.state = VISEMES_STATES[topViseme];
+        this.viseme = topViseme;
+    }
+
+    getBlendshapes(elapsedTime) {
+        const current = this.history[this.history.length - 1];
+        const lerpEngine = (start, end, amt) => (1 - amt) * start + amt * end;
+        
+        if (!current || current.volume < 0.015 || this.viseme === VISEMES.sil) {
+            this.clearBlendshapes(lerpEngine);
+            return this.currentBlendshapes;
+        }
+
+        let tAA = 0, tIH = 0, tEE = 0, tOH = 0, tUU = 0;
+        const intensity = Math.min(current.volume * 4.0, 1.0);
+
+        switch (this.viseme) {
+            case VISEMES.aa: tAA = intensity * 0.9; break;
+            case VISEMES.I:  tIH = intensity * 0.7; break;
+            case VISEMES.E: case VISEMES.CH: case VISEMES.SS: tEE = intensity * 0.8; break;
+            case VISEMES.O:  tOH = intensity * 0.85; break;
+            case VISEMES.U:  tUU = intensity * 0.8; break;
+            case VISEMES.PP: case VISEMES.FF: case VISEMES.TH: tUU = intensity * 0.2; break;
+            default: tIH = intensity * 0.25; break;
+        }
+
+        const waveMod = Math.sin(elapsedTime * this.config.vibrationFrequency) * (this.config.vibrationAmplitude * (current.volume * 5.0));
+        const clampLimit = (val, key) => Math.min(Math.max(val, this.config.visemes[key].min), Math.min(this.config.visemes[key].max, this.config.mouthOpenMaxCap));
+
+        this.currentBlendshapes.aa = lerpEngine(this.currentBlendshapes.aa, clampLimit(tAA + waveMod, 'aa'), this.config.openLerp);
+        this.currentBlendshapes.ih = lerpEngine(this.currentBlendshapes.ih, clampLimit(tIH + waveMod * 0.5, 'ih'), this.config.openLerp);
+        this.currentBlendshapes.ee = lerpEngine(this.currentBlendshapes.ee, clampLimit(tEE + waveMod * 0.3, 'ee'), this.config.openLerp);
+        this.currentBlendshapes.oh = lerpEngine(this.currentBlendshapes.oh, clampLimit(tOH + waveMod, 'oh'), this.config.openLerp);
+        this.currentBlendshapes.uu = lerpEngine(this.currentBlendshapes.uu, clampLimit(tUU + waveMod * 0.7, 'uu'), this.config.openLerp);
+
+        return this.currentBlendshapes;
+    }
+
+    clearBlendshapes(lerpEngine) {
+        const rate = this.config.closeLerp;
+        this.currentBlendshapes.aa = lerpEngine(this.currentBlendshapes.aa, 0, rate);
+        this.currentBlendshapes.ih = lerpEngine(this.currentBlendshapes.ih, 0, rate);
+        this.currentBlendshapes.ee = lerpEngine(this.currentBlendshapes.ee, 0, rate);
+        this.currentBlendshapes.oh = lerpEngine(this.currentBlendshapes.oh, 0, rate);
+        this.currentBlendshapes.uu = lerpEngine(this.currentBlendshapes.uu, 0, rate);
+    }
+
+    processAudio() {
+        this.features = this.extractFeatures();
+        this.detectState();
+    }
+}
+
+const lipsyncEngine = new Lipsync();
+const voiceAudio = new Audio();
+voiceAudio.crossOrigin = "anonymous";
+
+//////////////////////////////////////////////////////////////
+// THREE.JS SCENE SETUP
+//////////////////////////////////////////////////////////////
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 1.4,-1.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+dirLight.position.set(1, 1, 1);
+scene.add(dirLight);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.35, 0);
+controls.update();
+
+//////////////////////////////////////////////////////////////
+// MIXAMO RETARGETING & VRM LOADER
+//////////////////////////////////////////////////////////////
+const mixamoVRMRigMap = {
+    mixamorigHips: 'hips', mixamorigSpine: 'spine', mixamorigSpine1: 'chest', mixamorigSpine2: 'upperChest',
+    mixamorigNeck: 'neck', mixamorigHead: 'head', mixamorigLeftShoulder: 'leftShoulder', mixamorigLeftArm: 'leftUpperArm',
+    mixamorigLeftForeArm: 'leftLowerArm', mixamorigLeftHand: 'leftHand', mixamorigRightShoulder: 'rightShoulder',
+    mixamorigRightArm: 'rightUpperArm', mixamorigRightForeArm: 'rightLowerArm', mixamorigRightHand: 'rightHand',
+    mixamorigLeftUpLeg: 'leftUpperLeg', mixamorigLeftLeg: 'leftLowerLeg', mixamorigLeftFoot: 'leftFoot',
+    mixamorigLeftToeBase: 'leftToes', mixamorigRightUpLeg: 'rightUpperLeg', mixamorigRightLeg: 'rightLowerLeg',
+    mixamorigRightFoot: 'rightFoot', mixamorigRightToeBase: 'rightToes'
+};
+
+function getVrmBoneNode(vrmBoneName) {
+    if (!currentVrm) return null;
+    return currentVrm.humanoid.getNormalizedBoneNode(vrmBoneName);
+}
+
+function loadMixamoAnimation(url, vrm) {
+    const fbxLoader = new THREE.FBXLoader();
+    return fbxLoader.loadAsync(url).then((asset) => {
+        let clip = THREE.AnimationClip.findByName(asset.animations, 'mixamo.com');
+        if (!clip && asset.animations.length > 0) clip = asset.animations[0];
+        if (!clip) return null;
+
+        const tracks = [];
+        const restRotationInverse = new THREE.Quaternion();
+        const parentRestWorldRotation = new THREE.Quaternion();
+        const _quatA = new THREE.Quaternion();
+
+        const mixamoHipsNode = asset.getObjectByName('mixamorigHips');
+        const motionHipsHeight = mixamoHipsNode ? mixamoHipsNode.position.y : 1.0;
+        let vrmHipsHeight = 1.0;
+        
+        const hipsNode = getVrmBoneNode('hips');
+        if (hipsNode) vrmHipsHeight = hipsNode.position.y;
+
+        const hipsPositionScale = vrmHipsHeight / (motionHipsHeight || 1.0);
+
+        clip.tracks.forEach((track) => {
+            const trackSplitted = track.name.split('.');
+            const mixamoRigName = trackSplitted[0];
+            const propertyName = trackSplitted[1];
+            const vrmBoneName = mixamoVRMRigMap[mixamoRigName];
+            if (!vrmBoneName) return;
+
+            let vrmBoneNode = getVrmBoneNode(vrmBoneName);
+            const vrmNodeName = vrmBoneNode?.name;
+            const mixamoRigNode = asset.getObjectByName(mixamoRigName);
+
+            if (vrmNodeName && mixamoRigNode) {
+                mixamoRigNode.getWorldQuaternion(restRotationInverse).invert();
+                if (mixamoRigNode.parent) mixamoRigNode.parent.getWorldQuaternion(parentRestWorldRotation);
+                else parentRestWorldRotation.identity();
+
+                if (track instanceof THREE.QuaternionKeyframeTrack) {
+                    const flatQuaternion = new Float32Array(track.values);
+                    for (let i = 0; i < flatQuaternion.length; i += 4) {
+                        _quatA.fromArray(flatQuaternion, i);
+                        _quatA.premultiply(parentRestWorldRotation).multiply(restRotationInverse);
+                        _quatA.toArray(flatQuaternion, i);
+                    }
+                    const isVRM0 = vrm.meta?.metaVersion === '0' || vrm.vrmVersion === '0.0' || !vrm.vrmVersion;
+                    tracks.push(new THREE.QuaternionKeyframeTrack(`${vrmNodeName}.${propertyName}`, track.times, flatQuaternion.map((v, i) => (isVRM0 && i % 2 === 0 ? -v : v))));
+                } else if (track instanceof THREE.VectorKeyframeTrack) {
+                    const isVRM0 = vrm.meta?.metaVersion === '0' || vrm.vrmVersion === '0.0' || !vrm.vrmVersion;
+                    const value = track.values.map((v, i) => (isVRM0 && i % 3 !== 1 ? -v : v) * hipsPositionScale);
+                    tracks.push(new THREE.VectorKeyframeTrack(`${vrmNodeName}.${propertyName}`, track.times, value));
+                }
+            }
+        });
+        
+        return new THREE.AnimationClip('vrmAnimation', clip.duration, tracks);
+    });
+}
+
+let currentVrm = null;
+let animationMixer = null;
+let currentAction = null;
+let emotionController = null;
+
+const loader = new THREE.GLTFLoader();
+loader.register((parser) => new THREE_VRM.VRMLoaderPlugin(parser));
+
+loader.load(
+    "./Roselle.vrm",
+    (gltf) => {
+        currentVrm = gltf.userData.vrm;
+        scene.add(currentVrm.scene);
+        currentVrm.scene.rotation.y = Math.PI; 
+
+        animationMixer = new THREE.AnimationMixer(currentVrm.scene);
+        emotionController = new EmotionController(currentVrm);
+        window.emotionController = emotionController;
+
+        loadMixamoAnimation("./VRMA/Idle.fbx", currentVrm).then((vrmClip) => {
+            if (vrmClip) {
+                vrmClip.name = "./VRMA/Idle.fbx";
+                currentAction = animationMixer.clipAction(vrmClip);
+                currentAction.setLoop(THREE.LoopRepeat);
+                currentAction.play();
+                document.getElementById("status").innerHTML = "Ready. Click Enter & Speak!";
+            }
+        }).catch((err) => {
+            console.warn("Idle.fbx not found.", err);
+            document.getElementById("status").innerHTML = "Ready. Click Enter & Speak!";
+        });
+        
+    },
+    undefined,
+    (error) => {
+        console.error(error);
+        document.getElementById("status").innerHTML = "Error loading VRM model.";
+    }
+);
+
+//////////////////////////////////////////////////////////////
+// PROCEDURAL IDLE & BLINKING
+//////////////////////////////////////////////////////////////
+let isRandomIdleActive = true;
+let randomMotionTimer = 0;
+let randomMotionInterval = 2.5;
+// Target the body element
+// Target the body element
+const body = document.body;
+
+// Check if the current browser environment is PyQt WebEngine
+const isPythonWebEngine = navigator.userAgent.includes("QtWebEngine");
+
+if (isPythonWebEngine) {
+  // Hide background / make transparent when running in Python
+  body.style.backgroundColor = "transparent";
+  body.style.backgroundImage = "none";
+} else {
+  // Show full background when running in a normal browser
+  body.style.backgroundColor = "#121216";
+  body.style.backgroundImage = "url('./bg1.png')";
+  body.style.backgroundSize = "cover";
+  body.style.backgroundPosition = "center";
+  body.style.backgroundRepeat = "no-repeat";
+}
+const getRandom = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomBoneTargets = {
+    head: { current: new THREE.Vector3(), target: new THREE.Vector3() },
+    neck: { current: new THREE.Vector3(), target: new THREE.Vector3() }
+};
+
+function generateNewRandomTargets() {
+    ['head', 'neck'].forEach(bone => {
+        randomBoneTargets[bone].target.set(getRandom(-5, 5), getRandom(-12, 12), getRandom(-4, 4));
+    });
+}
+
+function updateBoneRotation(vrm, boneName, x, y, z) {
+    if (!vrm || !vrm.humanoid) return;
+    const boneNode = vrm.humanoid.getNormalizedBoneNode(boneName);
+    if (boneNode) {
+        const mathUtil = THREE.MathUtils;
+        boneNode.rotation.set(mathUtil.degToRad(x), mathUtil.degToRad(y), mathUtil.degToRad(z));
+    }
+}
+
+const autoBlinkState = { timer: 0, interval: 3.5, duration: 0.15, isBlinking: false, progress: 0 };
+function updateAutoBlink(delta) {
+    if (!currentVrm) return;
+    autoBlinkState.timer += delta;
+    if (!autoBlinkState.isBlinking && autoBlinkState.timer >= autoBlinkState.interval) {
+        autoBlinkState.isBlinking = true;
+        autoBlinkState.timer = 0;
+        autoBlinkState.progress = 0;
+    }
+    if (autoBlinkState.isBlinking) {
+        autoBlinkState.progress += delta / autoBlinkState.duration;
+        if (autoBlinkState.progress >= 1.0) {
+            autoBlinkState.isBlinking = false;
+            if (currentVrm.expressionManager) currentVrm.expressionManager.setValue("blink", 0);
+        } else {
+            const value = Math.sin(autoBlinkState.progress * Math.PI);
+            if (currentVrm.expressionManager) currentVrm.expressionManager.setValue("blink", value);
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////
+// EVENT LISTENERS & UI
+//////////////////////////////////////////////////////////////
+document.getElementById('btn-start').addEventListener('click', () => {
+    lipsyncEngine.init(voiceAudio);
+    if (lipsyncEngine.audioContext && lipsyncEngine.audioContext.state === 'suspended') {
+        lipsyncEngine.audioContext.resume();
+    }
+    const overlay = document.getElementById('start-overlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.style.display = 'none', 400);
+});
+
+document.getElementById('btn-generate').addEventListener('click', () => {
+    const text = document.getElementById('tts-input').value;
+    if (window.runGeminiWorkflow) {
+        window.runGeminiWorkflow(text);
+    }
+});
+
+document.getElementById('btn-play-demo').addEventListener('click', () => {
+    voiceAudio.src = "./audio/output.mp3";
+    voiceAudio.play().catch(e => alert("Please ensure demo audio exists at ./audio/output.mp3"));
+});
+
+const fileInput = document.getElementById('file-input');
+document.getElementById('btn-upload').addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        voiceAudio.src = URL.createObjectURL(file);
+        voiceAudio.play();
+        if (window.emotionController) window.emotionController.setEmotion("neutral");
+    }
+});
+
+const toggleIdleBtn = document.getElementById('btn-toggle-random');
+toggleIdleBtn.addEventListener('click', () => {
+    isRandomIdleActive = !isRandomIdleActive;
+    toggleIdleBtn.innerText = `Random Idle: ${isRandomIdleActive ? 'ON' : 'OFF'}`;
+});
+
+//////////////////////////////////////////////////////////////
+// RENDER LOOP
+//////////////////////////////////////////////////////////////
+function render() {
+    requestAnimationFrame(render);
+    const delta = clock.getDelta();
+    const elapsedTime = clock.getElapsedTime();
+
+    if (lipsyncEngine && lipsyncEngine.analyser) {
+        lipsyncEngine.processAudio();
+        const blendshapes = lipsyncEngine.getBlendshapes(elapsedTime);
+        if (currentVrm && currentVrm.expressionManager) {
+            currentVrm.expressionManager.setValue("aa", blendshapes.aa);
+            currentVrm.expressionManager.setValue("ih", blendshapes.ih);
+            currentVrm.expressionManager.setValue("ee", blendshapes.ee);
+            currentVrm.expressionManager.setValue("oh", blendshapes.oh);
+            currentVrm.expressionManager.setValue("uu", blendshapes.uu);
+        }
+    }
+    
+
+    if (animationMixer) animationMixer.update(delta);
+    if (emotionController) emotionController.apply(delta);
+
+    if (isRandomIdleActive && currentVrm) {
+        randomMotionTimer += delta;
+        if (randomMotionTimer >= randomMotionInterval) {
+            randomMotionTimer = 0;
+            generateNewRandomTargets();
+        }
+        ['head', 'neck'].forEach(bone => {
+            const currentVec = randomBoneTargets[bone].current;
+            const targetVec = randomBoneTargets[bone].target;
+            currentVec.lerp(targetVec, 0.05);
+            updateBoneRotation(currentVrm, bone, currentVec.x, currentVec.y, currentVec.z);
+        });
+    }
+    if (currentVrm) {
+    if (currentVrm.expressionManager) currentVrm.expressionManager.update();
+    if (currentVrm.humanoid) currentVrm.humanoid.update();
+
+    // Apply upper arm offsets
+    updateBoneRotation(currentVrm, 'leftUpperArm', 0, 0, -78);
+    updateBoneRotation(currentVrm, 'rightUpperArm', 0, 0, 78);
+}
+
+    updateAutoBlink(delta);
+
+    if (currentVrm) {
+        if (currentVrm.expressionManager) currentVrm.expressionManager.update();
+        if (currentVrm.humanoid) currentVrm.humanoid.update();
+    }
+    
+
+    controls.update();
+    renderer.render(scene, camera);
+}
+render();
+
+window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
