@@ -14,13 +14,7 @@ from elevenlabs import save
 # =========================================================
 # SILENCE MEDIAPIPE / ABSEIL C++ LOGGING & WARNING FLOODS
 # =========================================================
-#GEMINI_API_KEY = "AIzaSyCVlma794V9-z_mq6pwhV1vvHLHzKT7lpc"
-ELEVENLABS_API_KEY = "sk_589dd791421b045fd5eb3e1e01ca8cd24fde83acc80c4cdd"
-os.environ["GLOG_minloglevel"] = "3"
-os.environ["ABSL_MINLOGLEVEL"] = "3"
-#gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
-OUTPUT_FOLDER = "audio"
+
 # Force clean GPU/Sandbox flags for WebEngine instances under Ubuntu
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--enable-gpu --ignore-gpu-blocklist --no-sandbox"
 
