@@ -149,7 +149,7 @@ input[type="text"]:focus {
 <body>
 
 <div id="start-overlay">
-    <button class="btn" id="btn-start" style="padding: 16px 36px; font-size: 16px;">ENTER AVATAR EXPERIENCE</button>
+    <button class="btn" id="btn-start" style="padding: 16px 36px; font-size: 16px;">TALK TO ROSELLE</button>
     <p style="color: #888; font-size: 12px; margin-top: 15px;">Click to authorize Web Audio API & AudioContext</p>
 </div>
 
@@ -157,7 +157,9 @@ input[type="text"]:focus {
 
 <div id="control-panel">
     <div class="input-row">
-        <input type="text" id="tts-input" placeholder="Type message for Gemini & ElevenLabs..." value="I am so excited and happy to see you today!">
+        <!-- Speech Input Control Button -->
+<button id="startButton" class="mic-btn">🎤</button>
+<input type="text" id="tts-input" placeholder="Type message for Gemini & ElevenLabs..." value="I am so excited and happy to see you today!">
         <button class="btn" id="btn-generate">Speak</button>
     </div>
     <div class="button-row">
@@ -198,11 +200,10 @@ class GeminiAudioWorker extends EventEmitter {
     constructor(inputText) {
         super();
         this.inputText = inputText;
-        this.geminiApiKey = "AQ.Ab8RN6Lh8vLS6TqO9zhD8XmzXrBs7WZBHdkmANvH2mCGBpeLWA";
-        this.elevenLabsKey = "sk_589dd791421b045fd5eb3e1e01ca8cd24fde83acc80c4cdd"; // Replace if needed
-///AQ.Ab8RN6JkWTlH-R1V2xVCiCvHvwl_Vmd8pbRzS1EZgkHqFPDh-A
+        this.geminiApiKey = "";
+        this.elevenLabsKey ="";
         
-        this.voiceId = "jpL0o8GOh7pCIb1GW4nB";
+        this.voiceId = "stlJ4azw685oKGtmvmXo";
     }
 
     async run() {
@@ -932,6 +933,69 @@ if (isPythonWebEngine) {
   body.style.backgroundPosition = "center";
   body.style.backgroundRepeat = "no-repeat";
 }
+
+// Speech Recognition Initialization
+const startButton = document.getElementById("startButton");
+const ttsInput = document.getElementById("tts-input");
+const LANG = "en-US";
+if (ttsInput) {
+  ttsInput.addEventListener("keydown", (event) => {
+    // Check if Enter key is pressed without Shift (allowing Shift+Enter for new lines if multi-line later)
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault(); // Prevent line break or default form submit
+      
+      const text = ttsInput.value.trim();
+      if (text && typeof window.runGeminiWorkflow === "function") {
+        window.runGeminiWorkflow(text);
+      }
+    }
+  });
+}
+const recognition = new (window.SpeechRecognition ||
+  window.webkitSpeechRecognition ||
+  window.mozSpeechRecognition ||
+  window.msSpeechRecognition)();
+
+recognition.lang = LANG;
+
+// Automatically handle recognized speech
+recognition.onresult = (event) => {
+  const transcript = event.results[0][0].transcript;
+  
+  // 1. Update the input field text
+  if (ttsInput) {
+    ttsInput.value = transcript;
+  }
+
+  // 2. Trigger Roselle's Gemini + ElevenLabs workflow immediately
+  if (typeof window.runGeminiWorkflow === "function") {
+    window.runGeminiWorkflow(transcript);
+  }
+};
+
+// UI State Feedback on Mic Button
+recognition.onstart = () => {
+  startButton.textContent = "🎙️ Listening...";
+  startButton.classList.add("listening");
+};
+
+recognition.onend = () => {
+  startButton.textContent = "🎤 Start Voice Input";
+  startButton.classList.remove("listening");
+};
+
+// Toggle or Start Recognition on Click
+startButton.addEventListener("click", () => {
+  try {
+    recognition.start();
+  } catch (e) {
+    // Restart if already running
+    recognition.stop();
+  }
+});
+
+
+
 const getRandom = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const randomBoneTargets = {
     head: { current: new THREE.Vector3(), target: new THREE.Vector3() },
