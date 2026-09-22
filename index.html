@@ -202,6 +202,9 @@ class GeminiAudioWorker extends EventEmitter {
         this.inputText = inputText;
         this.geminiApiKey = "";
         this.elevenLabsKey ="";
+        this.geminiApiKey = document.getElementById("gemini-key-input")?.value.trim() || "";
+        this.elevenLabsKey = document.getElementById("eleven-key-input")?.value.trim() || "";
+        this.voiceId = "stlJ4azw685oKGtmvmXo";
         
         this.voiceId = "stlJ4azw685oKGtmvmXo";
     }
